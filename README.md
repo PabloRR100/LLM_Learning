@@ -31,7 +31,7 @@ Simple codebase for training/finetuning medium-sized GPTs.
 It is a rewrite of minGPT that prioritizes teeth over education
 
 
-### NanoGPT
+### GigaGPT
 
 - https://github.com/Cerebras/gigaGPT
 

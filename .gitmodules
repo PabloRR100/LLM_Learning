@@ -1,0 +1,15 @@
+[submodule "nanoGPT"]
+	path = nanoGPT
+	url = git@github.com:karpathy/nanoGPT.git
+[submodule "minGPT"]
+	path = minGPT
+	url = git@github.com:karpathy/minGPT.git
+[submodule "gigaGPT"]
+	path = gigaGPT
+	url = git@github.com:Cerebras/gigaGPT.git
+[submodule "llama.cpp"]
+	path = llama.cpp
+	url = git@github.com:ggerganov/llama.cpp.git
+[submodule "llama2.c"]
+	path = llama2.c
+	url = git@github.com:karpathy/llama2.c.git

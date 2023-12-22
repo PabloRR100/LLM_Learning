@@ -37,6 +37,26 @@ It is a rewrite of minGPT that prioritizes teeth over education
 
 We present gigaGPT – the simplest implementation for training large language models with tens or hundreds of billions of parameters. This work was inspired by Andrej Karpathy's nanoGPT. However, while nanoGPT is designed to train medium sized models up to around the 1B parameter range, gigaGPT leverages Cerebras hardware to use a single simple model definition and training loop to scale to GPT-3 sized models run across exaflop scale clusters.
 
+### GPT-Fast
+
+- https://github.com/pytorch-labs/gpt-fast
+- https://pytorch.org/blog/accelerating-generative-ai-2/
+
+(PyTorch Official)  
+*Simple and efficient pytorch-native transformer text generation.*
+
+A minimalistic, PyTorch-only decoding implementation loaded with best practices: int8/int4 quantization, speculative decoding, Tensor parallelism, etc. Boosts the "clock speed" of LLM OS by 10x with no model change! 
+
+
+### LIT-GPT
+
+- https://github.com/Lightning-AI/lit-gpt
+
+
+(PyTorch Lightning Official)  
+
+
+
 ### LLM-Visualization
 
 - https://bbycroft.net/llm

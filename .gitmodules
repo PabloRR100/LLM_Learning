@@ -13,3 +13,9 @@
 [submodule "llama2.c"]
 	path = llama2.c
 	url = git@github.com:karpathy/llama2.c.git
+[submodule "gpt-fast"]
+	path = gpt-fast
+	url = https://github.com/pytorch-labs/gpt-fast
+[submodule "lit-gpt"]
+	path = lit-gpt
+	url = https://github.com/Lightning-AI/lit-gpt

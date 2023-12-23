@@ -1,21 +1,21 @@
 [submodule "nanoGPT"]
-	path = nanoGPT
+	path = LLM_arch/nanoGPT
 	url = git@github.com:karpathy/nanoGPT.git
 [submodule "minGPT"]
-	path = minGPT
+	path = LLM_arch/minGPT
 	url = git@github.com:karpathy/minGPT.git
 [submodule "gigaGPT"]
-	path = gigaGPT
+	path = LLM_arch/gigaGPT
 	url = git@github.com:Cerebras/gigaGPT.git
 [submodule "llama.cpp"]
-	path = llama.cpp
+	path = LLM_arch/llama.cpp
 	url = git@github.com:ggerganov/llama.cpp.git
 [submodule "llama2.c"]
-	path = llama2.c
+	path = LLM_arch/llama2.c
 	url = git@github.com:karpathy/llama2.c.git
 [submodule "gpt-fast"]
-	path = gpt-fast
+	path = LLM_arch/gpt-fast
 	url = https://github.com/pytorch-labs/gpt-fast
 [submodule "lit-gpt"]
-	path = lit-gpt
+	path = LLM_arch/lit-gpt
 	url = https://github.com/Lightning-AI/lit-gpt

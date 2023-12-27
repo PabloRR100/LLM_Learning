@@ -9,14 +9,19 @@ https://github.com/huggingface/transformers/blob/main/src/transformers/models/gp
 """
 
 import math
+import logging
 
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from transformers import GPT2LMHeadModel
 
 from mingpt.utils import CfgNode as CN
 
-# -----------------------------------------------------------------------------
+
+Input = str | list[str]
+LOG = logging.getLogger(__name__)
+
 
 class NewGELU(nn.Module):
     """
@@ -25,6 +30,7 @@ class NewGELU(nn.Module):
     """
     def forward(self, x):
         return 0.5 * x * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))))
+
 
 class CausalSelfAttention(nn.Module):
     """
@@ -44,31 +50,36 @@ class CausalSelfAttention(nn.Module):
         self.attn_dropout = nn.Dropout(config.attn_pdrop)
         self.resid_dropout = nn.Dropout(config.resid_pdrop)
         # causal mask to ensure that attention is only applied to the left in the input sequence
-        self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size))
-                                     .view(1, 1, config.block_size, config.block_size))
+        self.register_buffer(
+            "bias",
+            torch.tril(torch.ones(config.block_size, config.block_size)).view(1, 1, config.block_size, config.block_size)
+        )
         self.n_head = config.n_head
         self.n_embd = config.n_embd
 
     def forward(self, x):
-        B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
+        B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
-        q, k ,v  = self.c_attn(x).split(self.n_embd, dim=2)
-        k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
-        q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
-        v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
+        q, k, v = self.c_attn(x).split(self.n_embd, dim=2)
+        k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
+        q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
+        v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
 
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
-        att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
+        att = torch.Tensor(q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+        att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float('-inf'))
         att = F.softmax(att, dim=-1)
         att = self.attn_dropout(att)
-        y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
-        y = y.transpose(1, 2).contiguous().view(B, T, C) # re-assemble all head outputs side by side
+
+        # Apply attention weights
+        y = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
+        y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
 
         # output projection
         y = self.resid_dropout(self.c_proj(y))
         return y
+
 
 class Block(nn.Module):
     """ an unassuming Transformer block """
@@ -78,19 +89,27 @@ class Block(nn.Module):
         self.ln_1 = nn.LayerNorm(config.n_embd)
         self.attn = CausalSelfAttention(config)
         self.ln_2 = nn.LayerNorm(config.n_embd)
-        self.mlp = nn.ModuleDict(dict(
-            c_fc    = nn.Linear(config.n_embd, 4 * config.n_embd),
-            c_proj  = nn.Linear(4 * config.n_embd, config.n_embd),
-            act     = NewGELU(),
-            dropout = nn.Dropout(config.resid_pdrop),
-        ))
+        self.mlp = nn.ModuleDict(
+            dict(
+                c_fc=nn.Linear(config.n_embd, 4 * config.n_embd),
+                c_proj=nn.Linear(4 * config.n_embd, config.n_embd),
+                act=NewGELU(),
+                dropout=nn.Dropout(config.resid_pdrop),
+            )
+        )
+        # This is not TorchScript compatible because of the lambda.
+        # m = self.mlp
+        # self.mlpf = lambda x: m.dropout(m.c_proj(m.act(m.c_fc(x))))  # MLP forward
+
+    def mlpf(self, x):
         m = self.mlp
-        self.mlpf = lambda x: m.dropout(m.c_proj(m.act(m.c_fc(x)))) # MLP forward
+        return m.dropout(m.c_proj(m.act(m.c_fc(x))))
 
     def forward(self, x):
         x = x + self.attn(self.ln_1(x))
         x = x + self.mlpf(self.ln_2(x))
         return x
+
 
 class GPT(nn.Module):
     """ GPT Language Model """
@@ -112,11 +131,20 @@ class GPT(nn.Module):
         C.attn_pdrop = 0.1
         return C
 
+    @classmethod
+    def load_default(cls) -> "GPT":
+        model_config = cls.get_default_config()
+        model_config.model_type = 'gpt2'
+        model_config.vocab_size = 50257  # openai's model vocabulary
+        model_config.block_size = 1024  # openai's model block_size (i.e. input context length)
+        return GPT(model_config)
+
     def __init__(self, config):
         super().__init__()
         assert config.vocab_size is not None
         assert config.block_size is not None
         self.block_size = config.block_size
+        self.config = config
 
         type_given = config.model_type is not None
         params_given = all([config.n_layer is not None, config.n_head is not None, config.n_embd is not None])
@@ -142,11 +170,11 @@ class GPT(nn.Module):
             }[config.model_type])
 
         self.transformer = nn.ModuleDict(dict(
-            wte = nn.Embedding(config.vocab_size, config.n_embd),
-            wpe = nn.Embedding(config.block_size, config.n_embd),
-            drop = nn.Dropout(config.embd_pdrop),
-            h = nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
-            ln_f = nn.LayerNorm(config.n_embd),
+            wte=nn.Embedding(config.vocab_size, config.n_embd),
+            wpe=nn.Embedding(config.block_size, config.n_embd),
+            drop=nn.Dropout(config.embd_pdrop),
+            h=nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
+            ln_f=nn.LayerNorm(config.n_embd),
         ))
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
@@ -178,7 +206,6 @@ class GPT(nn.Module):
         from a huggingface/transformers checkpoint.
         """
         assert model_type in {'gpt2', 'gpt2-medium', 'gpt2-large', 'gpt2-xl'}
-        from transformers import GPT2LMHeadModel
 
         # create a from-scratch initialized minGPT model
         config = cls.get_default_config()
@@ -260,12 +287,15 @@ class GPT(nn.Module):
     def forward(self, idx, targets=None):
         device = idx.device
         b, t = idx.size()
-        assert t <= self.block_size, f"Cannot forward sequence of length {t}, block size is only {self.block_size}"
-        pos = torch.arange(0, t, dtype=torch.long, device=device).unsqueeze(0) # shape (1, t)
+        if t > self.block_size:
+            raise ValueError(
+                f"Cannot forward sequence of length {t}, block size is only {self.block_size}"
+            )
+        pos = torch.arange(0, t, dtype=torch.long, device=device).unsqueeze(0)  # shape (1, t)
 
         # forward the GPT model itself
-        tok_emb = self.transformer.wte(idx) # token embeddings of shape (b, t, n_embd)
-        pos_emb = self.transformer.wpe(pos) # position embeddings of shape (1, t, n_embd)
+        tok_emb = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
+        pos_emb = self.transformer.wpe(pos)  # position embeddings of shape (1, t, n_embd)
         x = self.transformer.drop(tok_emb + pos_emb)
         for block in self.transformer.h:
             x = block(x)
@@ -289,6 +319,7 @@ class GPT(nn.Module):
         for _ in range(max_new_tokens):
             # if the sequence context is growing too long we must crop it at block_size
             idx_cond = idx if idx.size(1) <= self.block_size else idx[:, -self.block_size:]
+
             # forward the model to get the logits for the index in the sequence
             logits, _ = self(idx_cond)
             # pluck the logits at the final step and scale by desired temperature

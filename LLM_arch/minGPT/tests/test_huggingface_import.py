@@ -5,7 +5,7 @@ Ensure that we can load huggingface/transformer GPTs into minGPT
 import unittest
 import torch
 from transformers import GPT2Tokenizer, GPT2LMHeadModel
-from mingpt.model import GPT
+from mingpt.model import GPTModel
 from mingpt.bpe import BPETokenizer
 # -----------------------------------------------------------------------------
 
@@ -17,7 +17,7 @@ class TestHuggingFaceImport(unittest.TestCase):
         prompt = "Hello!!!!!!!!!? 🤗, my dog is a little"
 
         # create a minGPT and a huggingface/transformers model
-        model = GPT.from_pretrained(model_type)
+        model = GPTModel.from_pretrained(model_type)
         model_hf = GPT2LMHeadModel.from_pretrained(model_type) # init a HF model too
 
         # ship both to device

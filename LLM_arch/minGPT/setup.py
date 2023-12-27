@@ -1,6 +1,7 @@
 from setuptools import setup
 
-setup(name='minGPT',
+setup(
+      name='minGPT',
       version='0.0.1',
       author='Andrej Karpathy',
       packages=['mingpt'],

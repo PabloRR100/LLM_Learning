@@ -10,7 +10,7 @@ import torch
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
 
-from mingpt.model import GPT
+from mingpt.model import GPTModel
 from mingpt.trainer import Trainer
 from mingpt.utils import set_seed, setup_logging, CfgNode as CN
 
@@ -29,7 +29,7 @@ def get_config():
     C.data = AdditionDataset.get_default_config()
 
     # model
-    C.model = GPT.get_default_config()
+    C.model = GPTModel.get_default_config()
     C.model.model_type = 'gpt-nano'
 
     # trainer
@@ -136,7 +136,7 @@ if __name__ == '__main__':
     # construct the model
     config.model.vocab_size = train_dataset.get_vocab_size()
     config.model.block_size = train_dataset.get_block_size()
-    model = GPT(config.model)
+    model = GPTModel(config.model)
 
     # construct the trainer object
     trainer = Trainer(config.trainer, model, train_dataset)

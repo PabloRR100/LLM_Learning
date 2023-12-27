@@ -15,6 +15,7 @@ from mingpt.utils import set_seed, setup_logging, CfgNode as CN
 
 # -----------------------------------------------------------------------------
 
+
 def get_config():
 
     C = CN()
@@ -38,6 +39,7 @@ def get_config():
     return C
 
 # -----------------------------------------------------------------------------
+
 
 class CharDataset(Dataset):
     """
@@ -81,9 +83,26 @@ class CharDataset(Dataset):
         y = torch.tensor(dix[1:], dtype=torch.long)
         return x, y
 
+
 # -----------------------------------------------------------------------------
 
+
 if __name__ == '__main__':
+
+    # Check that MPS is available
+    if not torch.backends.mps.is_available():
+        if not torch.backends.mps.is_built():
+            print("MPS not available because the current PyTorch install was not "
+                  "built with MPS enabled.")
+        else:
+            print("MPS not available because the current MacOS version is not 12.3+ "
+                  "and/or you do not have an MPS-enabled device on this machine.")
+        device = "cpu"
+    else:
+        print("MPS available !")
+        device = "mps"
+
+    INPUT_DATA = "/Users/pabloruiz/Documents/Personal/LLMs/Llama/data/el_quijote.txt"
 
     # get default config and overrides from the command line, if any
     config = get_config()
@@ -93,7 +112,7 @@ if __name__ == '__main__':
     set_seed(config.system.seed)
 
     # construct the training dataset
-    text = open('input.txt', 'r').read() # don't worry we won't run out of file handles
+    text = open(INPUT_DATA, 'r').read() # don't worry we won't run out of file handles
     train_dataset = CharDataset(config.data, text)
 
     # construct the model
@@ -102,6 +121,7 @@ if __name__ == '__main__':
     model = GPT(config.model)
 
     # construct the trainer object
+    config.trainer.device = device
     trainer = Trainer(config.trainer, model, train_dataset)
 
     # iteration callback

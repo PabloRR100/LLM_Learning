@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+
+  # API
+  api:
+    build:
+      context: .
+      dockerfile: sandbox/api/Dockerfile
+#    volumes:
+#      - .:/app
+    ports:
+      - "8000:8000"
+    expose:
+      - 8008
+
+# UI
+  ui:
+    build: sandbox/ui
+    volumes:
+      - .:/app
+    ports:
+      - "5000:5000"

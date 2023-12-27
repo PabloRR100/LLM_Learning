@@ -1,0 +1,6 @@
+regex~=2023.12.25
+requests~=2.31.0
+torch~=2.1.2
+minGPT~=0.0.1
+numpy~=1.26.2
+setuptools~=65.5.0

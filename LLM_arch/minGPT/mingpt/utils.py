@@ -3,18 +3,26 @@ import os
 import sys
 import json
 import random
+from dotenv import load_dotenv
+from time import time
+from functools import wraps
 from ast import literal_eval
+from typing import Any, Callable, Optional
 
 import numpy as np
 import torch
+import torch.nn as nn
 
-# -----------------------------------------------------------------------------
+
+load_dotenv()
+
 
 def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+
 
 def setup_logging(config):
     """ monotonous bookkeeping """
@@ -27,6 +35,7 @@ def setup_logging(config):
     # log the config itself
     with open(os.path.join(work_dir, 'config.json'), 'w') as f:
         f.write(json.dumps(config.to_dict(), indent=4))
+
 
 class CfgNode:
     """ a lightweight configuration class inspired by yacs """
@@ -101,3 +110,30 @@ class CfgNode:
             # overwrite the attribute
             print("command line overwriting config attribute %s with %s" % (key, val))
             setattr(obj, leaf_key, val)
+
+
+def compare_weights(model1: nn.Module, model2: nn.Module):
+    for p1, p2 in zip(model1.parameters(), model2.parameters()):
+        if p1.data.ne(p2.data).sum() > 0:
+            return False
+    return True
+
+
+def timing(f: Callable) -> Any:
+
+    @wraps(f)
+    def wrap(*args: Optional[list], **kwargs: Optional[dict]) -> Any:
+
+        if torch.jit.is_scripting():
+            return f(*args, **kwargs)
+
+        if os.getenv("LOG_LEVEL", "INFO") == "DEBUG":
+            ts = time()
+            result = f(*args, **kwargs)
+            te = time()
+            # print('func:%r args:[%r, %r] took: %2.4f sec' % (f.__name__, args, kw, te-ts))
+            print('Func:%r :: Took: %2.4f sec' % (f.__qualname__, te - ts))
+            return result
+
+        return f(*args, **kwargs)
+    return wrap

@@ -15,7 +15,9 @@ import requests
 
 import torch
 
+
 # -----------------------------------------------------------------------------
+
 
 def bytes_to_unicode():
     """
@@ -48,6 +50,7 @@ def bytes_to_unicode():
     d = dict(zip(bs, cs))
     return d
 
+
 def get_pairs(word):
     """
     Return all bigrams as a set of tuples, of consecutive elements in the iterable word.
@@ -59,15 +62,16 @@ def get_pairs(word):
         prev_char = char
     return pairs
 
+
 class Encoder:
 
     def __init__(self, encoder, bpe_merges):
         # byte encoder/decoder
         self.byte_encoder = bytes_to_unicode()
-        self.byte_decoder = {v:k for k, v in self.byte_encoder.items()}
+        self.byte_decoder = {v: k for k, v in self.byte_encoder.items()}
         # bpe token encoder/decoder
         self.encoder = encoder
-        self.decoder = {v:k for k,v in self.encoder.items()}
+        self.decoder = {v: k for k, v in self.encoder.items()}
         # bpe merge list that defines the bpe "tree", of tuples (a,b) that are to merge to token ab
         self.bpe_ranks = dict(zip(bpe_merges, range(len(bpe_merges))))
         # the splitting pattern used for pre-tokenization
@@ -92,7 +96,7 @@ class Encoder:
         self.pat = re.compile(r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
         self.cache = {}
 
-    def bpe(self, token):
+    def bpe(self, token: str) -> str:
         """
         this function uses self.bpe_ranks to iteratively merge all the possible bpe tokens
         up the tree. token is a string of one individual 'word' (after regex tokenization)
@@ -104,8 +108,8 @@ class Encoder:
         if token in self.cache:
             return self.cache[token]
 
-        word = tuple(token) # individual characters that make up the token, in a tuple
-        pairs = get_pairs(word) # get all bigrams
+        word = tuple(token)  # individual characters that make up the token, in a tuple
+        pairs = get_pairs(word)  # get all bigrams
 
         if not pairs:
             return token
@@ -115,16 +119,16 @@ class Encoder:
             # find the next lowest rank bigram that can be merged
             bigram = min(pairs, key = lambda pair: self.bpe_ranks.get(pair, float('inf')))
             if bigram not in self.bpe_ranks:
-                break # no more bigrams are eligible to be merged
+                break  # no more bigrams are eligible to be merged
             first, second = bigram
 
-            # we will now replace all occurences of (first, second) in the list of current
+            # we will now replace all occurrences of (first, second) in the list of current
             # words into one merged token first_second, in the output list new_words
             new_word = []
             i = 0
             while i < len(word):
 
-                # find the next occurence of first in the sequence of current words
+                # find the next occurrence of first in the sequence of current words
                 try:
                     j = word.index(first, i)
                     new_word.extend(word[i:j])
@@ -133,7 +137,7 @@ class Encoder:
                     new_word.extend(word[i:])
                     break
 
-                # if this occurence is also followed by second, then merge them into one
+                # if this occurrence is also followed by second, then merge them into one
                 if word[i] == first and i < len(word)-1 and word[i+1] == second:
                     new_word.append(first+second)
                     i += 2
@@ -141,7 +145,7 @@ class Encoder:
                     new_word.append(word[i])
                     i += 1
 
-            # all occurences of (first, second) have been merged to first_second
+            # all occurrences of (first, second) have been merged to first_second
             new_word = tuple(new_word)
             word = new_word
             if len(word) == 1:
@@ -213,12 +217,14 @@ class Encoder:
         text = tokens_bytes.decode('utf-8', errors='replace')
         return text
 
+
 def get_file(local_file, remote_file):
     """ downloads remote_file to local_file if necessary """
     if not os.path.isfile(local_file):
         print(f"downloading {remote_file} to {local_file}")
         response = requests.get(remote_file)
         open(local_file, "wb").write(response.content)
+
 
 def get_encoder():
     """
@@ -252,7 +258,9 @@ def get_encoder():
     enc = Encoder(encoder, bpe_merges)
     return enc
 
+
 # -----------------------------------------------------------------------------
+
 
 class BPETokenizer:
     """ PyTorch-aware class that wraps the Encoder above """
